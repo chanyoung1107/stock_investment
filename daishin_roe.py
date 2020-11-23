@@ -1,16 +1,12 @@
 # -*- coding: utf-8 -*-
-import logging
-from PyQt5 import QtCore
-from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import *
 import win32com.client
-import os
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
-from PyQt5.QAxContainer import *
 from openpyxl import Workbook
 import sys
+import datetime
 
 
 cybos = ''
@@ -151,7 +147,18 @@ class StockStart(QWidget):
 
         write_xl = Workbook()
         write_ws = write_xl.active
-        write_ws.append(['종목', '종목코드', 'PER', '', '종목', 'ROE'])
+        write_ws.merge_cells('A1:F1')
+        date = str(datetime.datetime.now()).split('.')[0]
+        weekend = '월화수목금토일'
+        write_ws['A1'] = date + ' (' + weekend[datetime.datetime.now().weekday()] + ')'
+        write_ws.merge_cells('A2:F2')
+        write_ws['A2'] = 'PER 공식1 : 주가 / 주당순이익 - (주당순이익 = 당기순이익 / 주식수)'
+        write_ws.merge_cells('A3:F3')
+        write_ws['A3'] = 'PER 공식2 : 시가총액 / 당기순이익'
+        write_ws.merge_cells('A4:F4')
+        write_ws['A4'] = 'ROE 공식 : 당기순이익 / 자본총액'
+
+        write_ws.append(['종목', '종목코드', 'PER', '전일종가', '', '종목', 'ROE', '당기순이익'])
 
         # 주식 종록에 대한 정보 확인
         cpStockCode = win32com.client.Dispatch("CpUtil.CpStockCode")
@@ -200,10 +207,6 @@ class StockStart(QWidget):
 
         for key, value in per_roa_dict.items():
             write_ws.append([key, value[0], value[1], '', key, value[2]])
-
-        # industryCodeList = cpCodeMgr.GetIndustryList()  # 업종별 리스트 호출
-        # for industryCode in industryCodeList:
-        #     print(industryCode, cpCodeMgr.GetIndustryName(industryCode))
 
         excelUrl = QFileDialog.getSaveFileName(self, 'Save xlsx file', filter="*.xlsx")  # 파일 경로 + 이름
         try:

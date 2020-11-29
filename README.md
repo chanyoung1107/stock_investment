@@ -31,4 +31,7 @@
             종목 per 전일종가(전일날짜) 종목 roa(%) 총자산 당기순이익
             
     순자산 bps 현재가 기준이라 당기순이익과 맞지 않음 확인 필요
+    
+    
+    pyinstaller --onefile --exclude pandas -n stock_investment.exe daishin_roe.py --hidden-import=numpy.core.multiarray
 ####

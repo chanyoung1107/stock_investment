@@ -147,18 +147,20 @@ class StockStart(QWidget):
 
         write_xl = Workbook()
         write_ws = write_xl.active
-        write_ws.merge_cells('A1:F1')
+        write_ws.merge_cells('A1:G1')
         date = str(datetime.datetime.now()).split('.')[0]
         weekend = '월화수목금토일'
         write_ws['A1'] = date + ' (' + weekend[datetime.datetime.now().weekday()] + ')'
-        write_ws.merge_cells('A2:F2')
+        write_ws.merge_cells('A2:G2')
         write_ws['A2'] = 'PER 공식1 : 주가 / 주당순이익 - (주당순이익 = 당기순이익 / 주식수)'
-        write_ws.merge_cells('A3:F3')
+        write_ws.merge_cells('A3:G3')
         write_ws['A3'] = 'PER 공식2 : 시가총액 / 당기순이익'
-        write_ws.merge_cells('A4:F4')
+        write_ws.merge_cells('A4:G4')
         write_ws['A4'] = 'ROE 공식 : 당기순이익 / 자본총액'
+        write_ws.merge_cells('A5:G5')
+        write_ws['A5'] = '재무제표 비교 사이트: https://comp.fnguide.com'
 
-        write_ws.append(['종목', '종목코드', 'PER', '전일종가', '', '종목', 'ROE', '당기순이익'])
+        write_ws.append(['종목', '종목코드', 'PER', 'ROE (%)', '당기순이익 (억)', '전일종가', '총자산 (억)'])
 
         # 주식 종록에 대한 정보 확인
         cpStockCode = win32com.client.Dispatch("CpUtil.CpStockCode")
@@ -186,27 +188,25 @@ class StockStart(QWidget):
                 fullDataList.append(dataList)
 
         for i in range(len(fullDataList)):
-            marketEye.SetInputValue(0, (67, 77))
+            marketEye.SetInputValue(0, (20, 23, 67, 75, 77, 88, 89))
             marketEye.SetInputValue(1, fullDataList[i])
             marketEye.BlockRequest()
 
             for idx, (key, value) in enumerate(fullDataDictList[i].items()):
-                # print('----------')
-                # print(key)
-                # print("PER : " + str(marketEye.getDataValue(0, idx)))                    # 20
-                # print("부채비율 : " + str(marketEye.getDataValue(1, idx)))                 # 67
 
-                if marketEye.getDataValue(0, idx) != 0.0:
+                if marketEye.getDataValue(2, idx) != 0.0:
                     # print(key)                                                          # 주식명
-                    # print(marketEye.getDataValue(0, idx))                               # per
-                    # print(marketEye.getDataValue(1, idx))                               # ROA
+                    own_value = marketEye.getDataValue(0, idx) * marketEye.getDataValue(6, idx)
+                    debt = marketEye.getDataValue(3, idx) * own_value / 100
+                    total_value = (own_value + debt) / 100000000
 
-                    per_roa_dict[key] = (value, marketEye.getDataValue(0, idx), marketEye.getDataValue(1, idx))
-
-            # print('------------------------------------------------------------------------')
+                    # ['종목', '종목코드', 'PER', 'ROE (%)', '당기순이익', '전일종가', '총자산']
+                    per_roa_dict[key] = (value, marketEye.getDataValue(2, idx), marketEye.getDataValue(4, idx),
+                                         (marketEye.getDataValue(5, idx) / 100000000), marketEye.getDataValue(1, idx),
+                                         total_value)
 
         for key, value in per_roa_dict.items():
-            write_ws.append([key, value[0], value[1], '', key, value[2]])
+            write_ws.append([key, value[0], value[1], value[2], value[3], value[4], value[5]])
 
         excelUrl = QFileDialog.getSaveFileName(self, 'Save xlsx file', filter="*.xlsx")  # 파일 경로 + 이름
         try:

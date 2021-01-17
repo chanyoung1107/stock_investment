@@ -160,7 +160,7 @@ class StockStart(QWidget):
         write_ws.merge_cells('A5:G5')
         write_ws['A5'] = '재무제표 비교 사이트: https://comp.fnguide.com'
 
-        write_ws.append(['종목', '종목코드', 'PER', 'ROE (%)', '당기순이익 (억)', '전일종가', '총자산 (억)'])
+        write_ws.append(['종목', '종목코드', 'PER', '', '종목', '종목코드', 'ROE (%)', '', '당기순이익 (억)', '전일종가', '총자산 (억)'])
 
         # 주식 종록에 대한 정보 확인
         cpStockCode = win32com.client.Dispatch("CpUtil.CpStockCode")
@@ -194,19 +194,19 @@ class StockStart(QWidget):
 
             for idx, (key, value) in enumerate(fullDataDictList[i].items()):
 
-                if marketEye.getDataValue(2, idx) != 0.0:
-                    # print(key)                                                          # 주식명
-                    own_value = marketEye.getDataValue(0, idx) * marketEye.getDataValue(6, idx)
-                    debt = marketEye.getDataValue(3, idx) * own_value / 100
-                    total_value = (own_value + debt) / 100000000
+                # if marketEye.getDataValue(2, idx) != 0.0:
+                # print(key)                                                          # 주식명
+                own_value = marketEye.getDataValue(0, idx) * marketEye.getDataValue(6, idx)
+                debt = marketEye.getDataValue(3, idx) * own_value / 100
+                total_value = (own_value + debt) / 100000000
 
-                    # ['종목', '종목코드', 'PER', 'ROE (%)', '당기순이익', '전일종가', '총자산']
-                    per_roa_dict[key] = (value, marketEye.getDataValue(2, idx), marketEye.getDataValue(4, idx),
-                                         (marketEye.getDataValue(5, idx) / 100000000), marketEye.getDataValue(1, idx),
-                                         total_value)
+                # ['종목', '종목코드', 'PER', '', '종목', '종목코드', 'ROE (%)', '', '당기순이익', '전일종가', '총자산']
+                per_roa_dict[key] = (value, marketEye.getDataValue(2, idx), marketEye.getDataValue(4, idx),
+                                     (marketEye.getDataValue(5, idx) / 100000000), marketEye.getDataValue(1, idx),
+                                     total_value)
 
         for key, value in per_roa_dict.items():
-            write_ws.append([key, value[0], value[1], value[2], value[3], value[4], value[5]])
+            write_ws.append([key, value[0], value[1], '', key, value[0], value[2], '', value[3], value[4], value[5]])
 
         excelUrl = QFileDialog.getSaveFileName(self, 'Save xlsx file', filter="*.xlsx")  # 파일 경로 + 이름
         try:

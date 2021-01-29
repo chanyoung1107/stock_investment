@@ -7,6 +7,7 @@ from PyQt5.QtWidgets import *
 from openpyxl import Workbook
 import sys
 import datetime
+import operator
 
 
 cybos = ''
@@ -160,7 +161,7 @@ class StockStart(QWidget):
         write_ws.merge_cells('A5:G5')
         write_ws['A5'] = '재무제표 비교 사이트: https://comp.fnguide.com'
 
-        write_ws.append(['종목', '종목코드', 'PER', '', '종목', '종목코드', 'ROE (%)', '', '당기순이익 (억)', '전일종가', '총자산 (억)'])
+        write_ws.append(['종목', 'PER', '', '종목', 'ROE (%)', '', '순위종목', '종목코드', '순위합산', '', 'PER', 'ROE (%)', '당기순이익 (억)', '전일종가', '총자산 (억)'])
 
         # 주식 종록에 대한 정보 확인
         cpStockCode = win32com.client.Dispatch("CpUtil.CpStockCode")
@@ -174,6 +175,9 @@ class StockStart(QWidget):
         # kospi / kosdac 종목코드 리스트
         kospiList = cpCodeMgr.getstocklistbymarket(1)
         kosdacList = cpCodeMgr.getstocklistbymarket(2)
+
+        per_dict = {}
+        roe_dict = {}
 
         for i in range(len(kospiList)):
             dataDict[cpCodeMgr.codetoname(kospiList[i])] = kospiList[i]
@@ -193,20 +197,66 @@ class StockStart(QWidget):
             marketEye.BlockRequest()
 
             for idx, (key, value) in enumerate(fullDataDictList[i].items()):
+                if marketEye.getDataValue(2, idx) != 0.0:
+                    own_value = marketEye.getDataValue(0, idx) * marketEye.getDataValue(6, idx)
+                    debt = marketEye.getDataValue(3, idx) * own_value / 100
+                    total_value = (own_value + debt) / 100000000
 
-                # if marketEye.getDataValue(2, idx) != 0.0:
-                # print(key)                                                          # 주식명
-                own_value = marketEye.getDataValue(0, idx) * marketEye.getDataValue(6, idx)
-                debt = marketEye.getDataValue(3, idx) * own_value / 100
-                total_value = (own_value + debt) / 100000000
+                    # 종목: ['종목코드', 'PER', 'ROE (%)', '당기순이익', '전일종가', '총자산']
+                    per_roa_dict[key] = (value, marketEye.getDataValue(2, idx), marketEye.getDataValue(4, idx),
+                                         (marketEye.getDataValue(5, idx) / 100000000), marketEye.getDataValue(1, idx),
+                                         total_value)
 
-                # ['종목', '종목코드', 'PER', '', '종목', '종목코드', 'ROE (%)', '', '당기순이익', '전일종가', '총자산']
-                per_roa_dict[key] = (value, marketEye.getDataValue(2, idx), marketEye.getDataValue(4, idx),
-                                     (marketEye.getDataValue(5, idx) / 100000000), marketEye.getDataValue(1, idx),
-                                     total_value)
+                    per_dict[key] = marketEye.getDataValue(2, idx)
+                    roe_dict[key] = marketEye.getDataValue(4, idx)
 
-        for key, value in per_roa_dict.items():
-            write_ws.append([key, value[0], value[1], '', key, value[0], value[2], '', value[3], value[4], value[5]])
+        sort_per_list = sorted(per_dict.items(), key=lambda item: item[1])
+        sort_roe_list = sorted(roe_dict.items(), reverse=True,  key=lambda item: item[1])
+        sort_per_dict = {}
+        sort_roe_dict = {}
+        per_rank = {}
+        roe_rank = {}
+        total_rank = {}
+
+        # sorting한 per/roe list dict로 변경 {이름: per/roe}
+        for i in range(len(sort_per_list)):
+            sort_per_dict[sort_per_list[i][0]] = sort_per_list[i][1]
+            sort_roe_dict[sort_roe_list[i][0]] = sort_roe_list[i][1]
+
+        per_rank_count = 1
+        roe_rank_count = 1
+
+        # per/roe dict 순위로 dict 추가 {이름: 순위}
+        for key in sort_per_dict:
+            per_rank[key] = per_rank_count
+            per_rank_count += 1
+
+        for key in sort_roe_dict:
+            roe_rank[key] = roe_rank_count
+            roe_rank_count += 1
+
+        # total 순위합산 total_rank dict에 추가 {이름: 순위합산}
+        for key, value in per_rank.items():
+            for subKey, subValue in roe_rank.items():
+                if key == subKey:
+                    rank = per_rank[key] + roe_rank[subKey]
+                    total_rank[key] = rank
+
+        # print(per_roa_dict) # {'동화약품': ('A000020', 16.450000762939453, 3.140000104904175, 93.93, 16550, 4069.313113178766),}
+        # 종목: ['종목코드', 'PER', 'ROE (%)', '당기순이익', '전일종가', '총자산']
+        # print(per_rank) # '태영건설': 1, '미래아이앤지': 2, 'SK가스': 3, '한진중공업': 4, '원림': 5,
+        # print(roe_rank) # '세하': 1, '진양폴리': 2, '범양건영': 3, 'KG케미칼': 4, '신풍제지': 5, '코웨이': 6,
+        # print(total_rank)   # '태영건설': 174, '미래아이앤지': 25, 'SK가스': 142, '한진중공업': 482,
+        # {이름: 순위합산} sorting
+        sort_total_list = sorted(total_rank.items(), key=lambda item: item[1])
+
+        # ['종목', '종목코드', 'PER', '', '종목', '종목코드', 'ROE (%)', '', '순위종목', '종목코드', '순위합산', '', 'PER', 'ROE (%)', '당기순이익 (억)', '전일종가', '총자산 (억)']
+        for i in range(len(sort_total_list)):
+            write_ws.append([sort_per_list[i][0], per_roa_dict[sort_per_list[i][0]][1], '',
+                             sort_roe_list[i][0], per_roa_dict[sort_roe_list[i][0]][2], '',
+                             sort_total_list[i][0], per_roa_dict[sort_total_list[i][0]][0], sort_total_list[i][1], '',
+                             per_roa_dict[sort_total_list[i][0]][1], per_roa_dict[sort_total_list[i][0]][2], per_roa_dict[sort_total_list[i][0]][3],
+                             per_roa_dict[sort_total_list[i][0]][4], per_roa_dict[sort_total_list[i][0]][5]])
 
         excelUrl = QFileDialog.getSaveFileName(self, 'Save xlsx file', filter="*.xlsx")  # 파일 경로 + 이름
         try:
